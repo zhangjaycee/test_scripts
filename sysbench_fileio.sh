@@ -1,6 +1,8 @@
 #!/bin/bash
 
 
+SYSBENCH_PATH=sysbench
+
 REPORT_INTERVAL=5
 MAX_TIME=50
 FILE_TOTAL_SIZE=16
@@ -8,8 +10,8 @@ FILE_NUM=4
 
 function prepare {
     echo PREPRAE start....
-    sysbench --test=fileio cleanup
-    sysbench --test=fileio --file-num=$FILE_NUM --file-total-size=${FILE_TOTAL_SIZE}G prepare
+    $SYSBENCH_PATH --test=fileio cleanup
+    $SYSBENCH_PATH --test=fileio --file-num=$FILE_NUM --file-total-size=${FILE_TOTAL_SIZE}G prepare
     echo PREPRAE done....
 }
 
@@ -18,7 +20,7 @@ function run_thread {
     for THREAD_NUM in 1 2 4 8 16 32 64
     do
         echo thread_num: $THREAD_NUM
-        sysbench --test=fileio --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=1000000 \
+        $SYSBENCH_PATH --test=fileio --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=1000000 \
         --num-threads=$THREAD_NUM --file-total-size=${FILE_TOTAL_SIZE}G --file-num=$FILE_NUM --file-block-size=${FILE_BLOCK_SIZE}k \
         --file-extra-flags=direct --file-test-mode=rndrd run
     done
@@ -29,7 +31,7 @@ function run_block {
     for FILE_BLOCK_SIZE in 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192
     do
         echo block_size: ${FILE_BLOCK_SIZE}kB
-        sysbench --test=fileio --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=1000000 \
+        $SYSBENCH_PATH --test=fileio --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=1000000 \
         --num-threads=$THREAD_NUM --file-total-size=${FILE_TOTAL_SIZE}G --file-num=$FILE_NUM --file-block-size=${FILE_BLOCK_SIZE}k \
         --file-extra-flags=direct --file-test-mode=rndrd run
     done
