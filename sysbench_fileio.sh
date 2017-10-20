@@ -48,7 +48,7 @@ function run_full_throughput {
 }
 
 function run_full_cpu {
-    THREAD_NUM=64
+    THREAD_NUM=128
     FILE_BLOCK_SIZE=4
     echo "full CPU"
     echo "block_size: ${FILE_BLOCK_SIZE}kB thread_num: $THREAD_NUM"
@@ -80,7 +80,7 @@ then
 elif [ $2 = "block" ]
 then
     run_block
-elif [ $2 = "full_throughput" ]
+elif [ $2 = "full_io" ]
 then
     run_full_throughput
 elif [ $2 = "full_cpu" ]
