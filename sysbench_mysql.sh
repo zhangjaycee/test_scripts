@@ -13,8 +13,8 @@ DB_NAME_CMP=sbtest_cmp
 TABLE_SIZE=575000 
 TABLE_NUM=4          # 575000 * 4 is about 500MB
 
-RAND_SPEC_PCT=1
-RAND_SPEC_RES=75
+RAND_SPEC_PCT=20
+RAND_SPEC_RES=80
 
 SQL_PREFIX="/usr/local/mysql/bin/mysql -uroot -p1234 -e"
 REPORT_FILE="report_multi_ssd.log"
