@@ -37,6 +37,26 @@ function run_block {
     done
 }
 
+function run_full_throughput {
+    THREAD_NUM=4
+    FILE_BLOCK_SIZE=8192
+    echo "full throughput"
+    echo "block_size: ${FILE_BLOCK_SIZE}kB thread_num: $THREAD_NUM"
+    $SYSBENCH_PATH --test=fileio --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=1000000 \
+    --num-threads=$THREAD_NUM --file-total-size=${FILE_TOTAL_SIZE}G --file-num=$FILE_NUM --file-block-size=${FILE_BLOCK_SIZE}k \
+    --file-extra-flags=direct --file-test-mode=rndrd run
+}
+
+function run_full_cpu {
+    THREAD_NUM=64
+    FILE_BLOCK_SIZE=4
+    echo "full CPU"
+    echo "block_size: ${FILE_BLOCK_SIZE}kB thread_num: $THREAD_NUM"
+    $SYSBENCH_PATH --test=fileio --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=1000000 \
+    --num-threads=$THREAD_NUM --file-total-size=${FILE_TOTAL_SIZE}G --file-num=$FILE_NUM --file-block-size=${FILE_BLOCK_SIZE}k \
+    --file-extra-flags=direct --file-test-mode=rndrd run
+}
+
 if [ $# -eq 1 ] && [ $1 = "prepare" ]
 then
     prepare
@@ -60,6 +80,12 @@ then
 elif [ $2 = "block" ]
 then
     run_block
+elif [ $2 = "full_throughput" ]
+then
+    run_full_throughput
+elif [ $2 = "full_cpu" ]
+then
+    run_full_cpu
 else
     echo $2 is an illegal parameter
 fi
