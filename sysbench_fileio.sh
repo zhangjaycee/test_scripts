@@ -47,6 +47,16 @@ function run_full_throughput {
     --file-extra-flags=direct --file-test-mode=rndrd run
 }
 
+function run_full_throughput_write {
+    THREAD_NUM=4
+    FILE_BLOCK_SIZE=8192
+    echo "full throughput"
+    echo "block_size: ${FILE_BLOCK_SIZE}kB thread_num: $THREAD_NUM"
+    $SYSBENCH_PATH --test=fileio --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=1000000 \
+    --num-threads=$THREAD_NUM --file-total-size=${FILE_TOTAL_SIZE}G --file-num=$FILE_NUM --file-block-size=${FILE_BLOCK_SIZE}k \
+    --file-extra-flags=direct --file-test-mode=rndwr run
+}
+
 function run_full_cpu {
     THREAD_NUM=128
     FILE_BLOCK_SIZE=4
@@ -83,6 +93,9 @@ then
 elif [ $2 = "full_io" ]
 then
     run_full_throughput
+elif [ $2 = "full_io_wr" ]
+then
+    run_full_throughput_write
 elif [ $2 = "full_cpu" ]
 then
     run_full_cpu
