@@ -1,0 +1,11 @@
+[global]
+filename=fio_testdata
+size=20G
+runtime=30
+ioengine=libaio
+direct=1
+ramp_time=10           # start measuring after warm-up time
+
+[write]
+readwrite=write
+blocksize=4K
