@@ -7,11 +7,15 @@
 #   --memory-access-mode=STRING memory access mode {seq,rnd} [seq]
 
 #SYSBENCH_BIN=/home/zjc/bin/sysbench/bin/sysbench
-SYSBENCH_BIN=/home/zjc/bin/sysbench-1.0/bin/sysbench
+SYSBENCH_BIN=/home/zjc/bin/sysbench-zjc/bin/sysbench
 
 
 # Throughput
-${SYSBENCH_BIN} --threads=16 --time=30 --test=memory --memory-block-size=64K --memory-total-size=200G --memory-access-mode=rnd --memory-oper=read run
+#${SYSBENCH_BIN} --threads=16 --time=30 --test=memory --memory-block-size=64K --memory-total-size=200G --memory-access-mode=rnd --memory-oper=read run
 
 # Latency
-${SYSBENCH_BIN} --threads=1 --time=30 --test=memory --memory-block-size=4K --memory-total-size=20G --memory-access-mode=rnd --memory-oper=read run
+${SYSBENCH_BIN} --threads=1 --time=30 --percentile=99 --test=memory --memory-block-size=4K --memory-total-size=20G --memory-access-mode=rnd --memory-oper=read run
+${SYSBENCH_BIN} --threads=1 --time=30 --percentile=99 --test=memory --memory-block-size=4K --memory-total-size=20G --memory-access-mode=seq --memory-oper=read run
+${SYSBENCH_BIN} --threads=1 --time=30 --percentile=99 --test=memory --memory-block-size=4K --memory-total-size=20G --memory-access-mode=rnd --memory-oper=write run
+${SYSBENCH_BIN} --threads=1 --time=30 --percentile=99 --test=memory --memory-block-size=4K --memory-total-size=20G --memory-access-mode=seq --memory-oper=write run
+
