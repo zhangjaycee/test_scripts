@@ -4,9 +4,9 @@
 SYSBENCH_PATH=/home/zjc/bin/sysbench-1.0/bin/sysbench
 
 REPORT_INTERVAL=5
-MAX_TIME=50
+MAX_TIME=10
 FILE_TOTAL_SIZE=20
-FILE_NUM=1
+FILE_NUM=128
 
 function prepare {
     echo PREPRAE start....
@@ -64,7 +64,17 @@ function run_iops {
     echo "block_size: ${FILE_BLOCK_SIZE}kB thread_num: $THREAD_NUM"
     $SYSBENCH_PATH --test=fileio --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=1000000000 \
     --num-threads=$THREAD_NUM --file-total-size=${FILE_TOTAL_SIZE}G --file-num=$FILE_NUM --file-block-size=${FILE_BLOCK_SIZE}k \
-    --file-extra-flags=direct --file-test-mode=rndrd run
+    --file-extra-flags=direct  --file-test-mode=rndrd run
+}
+
+function run_iops_wr {
+    THREAD_NUM=64
+    FILE_BLOCK_SIZE=4
+    echo "full CPU"
+    echo "block_size: ${FILE_BLOCK_SIZE}kB thread_num: $THREAD_NUM"
+    $SYSBENCH_PATH --test=fileio --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=1000000000 \
+    --num-threads=$THREAD_NUM --file-total-size=${FILE_TOTAL_SIZE}G --file-num=$FILE_NUM --file-block-size=${FILE_BLOCK_SIZE}k \
+    --file-extra-flags=direct --file-fsync-freq=1 --file-test-mode=rndwr run
 }
 
 function run_latency_sensitive {
@@ -109,6 +119,9 @@ then
 elif [ $2 = "iops" ]
 then
     run_iops
+elif [ $2 = "iops_wr" ]
+then
+    run_iops_wr
 elif [ $2 = "lat" ]
 then
     run_latency_sensitive
