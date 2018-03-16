@@ -8,10 +8,13 @@ MAX_TIME=21
 MAX_REQUEST_NUM=1000000
 THREAD_NUM=4
 
+USER=root
+PASSWORD=123qwe
+
 DB_NAME=sbtest
 DB_NAME_CMP=sbtest_cmp
 TABLE_SIZE=575000 
-TABLE_NUM=4          # 575000 * 4 is about 500MB
+TABLE_NUM=4    #      # 575000 * 4 is about 500MB
 
 RAND_SPEC_PCT=20
 RAND_SPEC_RES=80
@@ -26,24 +29,24 @@ TABLE_OPTION_CMP="ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8"
 function prepare_data {
     echo PREPRAE start....
     $SYSBENCH_PATH --test=oltp --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=$MAX_REQUEST_NUM --num-threads=$THREAD_NUM --rand-init=on \
-    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=root --mysql-password=1234 --mysql-db=$DB_NAME \
+    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=$USER --mysql-password=$PASSWORD --mysql-db=$DB_NAME \
     --oltp-table-size=$TABLE_SIZE --oltp-read-only=on --oltp-tables-count=$TABLE_NUM \
     --mysql-table-options="$TBALE_OPTION" cleanup
 
     $SYSBENCH_PATH --test=oltp --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=$MAX_REQUEST_NUM --num-threads=$THREAD_NUM --rand-init=on \
-    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=root --mysql-password=1234 --mysql-db=$DB_NAME \
+    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=$USER --mysql-password=$PASSWORD --mysql-db=$DB_NAME \
     --oltp-table-size=$TABLE_SIZE --oltp-read-only=on --oltp-tables-count=$TABLE_NUM \
     --mysql-table-options="$TBALE_OPTION" prepare
     echo "=======================nocom PREPRAE done....=========================="
 
 
     $SYSBENCH_PATH --test=oltp --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=$MAX_REQUEST_NUM --num-threads=$THREAD_NUM --rand-init=on \
-    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=root --mysql-password=1234 --mysql-db=$DB_NAME_CMP \
+    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=$USER --mysql-password=$PASSWORD --mysql-db=$DB_NAME_CMP \
     --oltp-table-size=$TABLE_SIZE --oltp-read-only=on --oltp-tables-count=$TABLE_NUM \
     --mysql-table-options="$TBALE_OPTION_CMP" cleanup
 
     $SYSBENCH_PATH --test=oltp --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=$MAX_REQUEST_NUM --num-threads=$THREAD_NUM --rand-init=on \
-    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=root --mysql-password=1234 --mysql-db=$DB_NAME_CMP \
+    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=$USER --mysql-password=$PASSWORD --mysql-db=$DB_NAME_CMP \
     --oltp-table-size=$TABLE_SIZE --oltp-read-only=on --oltp-tables-count=$TABLE_NUM \
     --mysql-table-options="$TABLE_OPTION_CMP" prepare
     echo "=======================comped data PREPRAE done....=========================="
@@ -54,7 +57,7 @@ function run_thread {
     do
         echo thread_num: $THREAD_NUM
         $SYSBENCH_PATH --test=oltp --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=$MAX_REQUEST_NUM --num-threads=$THREAD_NUM --rand-init=on \
-        --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=root --mysql-password=1234 --mysql-db=$DB_NAME \
+        --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=$USER --mysql-password=$PASSWORD --mysql-db=$DB_NAME \
         --oltp-table-size=$TABLE_SIZE --oltp-read-only=on --oltp-tables-count=$TABLE_NUM --oltp-dist-type=gaussian \
         --mysql-table-options="$TBALE_OPTION" run
     done
@@ -64,7 +67,7 @@ function run_nocom {
     echo thread_num: $THREAD_NUM
     $SYSBENCH_PATH --test=oltp --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=$MAX_REQUEST_NUM --num-threads=$THREAD_NUM --rand-init=on \
     --rand-type=$RAND_TYPE --rand-spec-pct=$RAND_SPEC_PCT --rand-spec-res=$RAND_SPEC_RES \
-    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=root --mysql-password=1234 --mysql-db=$DB_NAME \
+    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=$USER --mysql-password=$PASSWORD --mysql-db=$DB_NAME \
     --oltp-table-size=$TABLE_SIZE --oltp-read-only=on --oltp-tables-count=$TABLE_NUM \
     --mysql-table-options="$TBALE_OPTION" run
 }
@@ -74,7 +77,7 @@ function run_com {
     echo thread_num: $THREAD_NUM
     $SYSBENCH_PATH --test=oltp --max-time=$MAX_TIME --report-interval=$REPORT_INTERVAL --max-requests=$MAX_REQUEST_NUM --num-threads=$THREAD_NUM --rand-init=on \
     --rand-type=$RAND_TYPE --rand-spec-pct=$RAND_SPEC_PCT --rand-spec-res=$RAND_SPEC_RES \
-    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=root --mysql-password=1234 --mysql-db=$DB_NAME_CMP \
+    --mysql-socket=/tmp/mysql.sock --mysql-host=localhost --mysql-port=3306 --mysql-user=$USER --mysql-password=$PASSWORD --mysql-db=$DB_NAME_CMP \
     --oltp-table-size=$TABLE_SIZE --oltp-read-only=on --oltp-tables-count=$TABLE_NUM \
     --mysql-table-options="$TBALE_OPTION_CMP" run
 }
