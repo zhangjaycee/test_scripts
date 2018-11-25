@@ -16,7 +16,7 @@
 #define BUF_SIZE (128UL*1024*1024)
 
 
-#define COUNT 10
+#define COUNT 100
 
 struct timeval ts, te;
 
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
     // overwrite first!
     memset(buf, 'X', BUF_SIZE);
     for (i = 0; i < MAP_SIZE; i += BUF_SIZE) {
-        printf("i: %lu\n", i);
+        //printf("i: %lu\n", i);
         memcpy(addr + i, buf, BUF_SIZE);
     }
     msync(addr, MAP_SIZE, MS_SYNC); 
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
         memcpy(addr + rand_off[i], buf, BUF_SIZE);
     }
     t = et(COUNT, "memcpy write (store) 100 MB time\n");
-    printf("Bandwidth: %lu MB/s\n\n", 100UL * 1000000 / t);
+    printf("Bandwidth: %lu MB/s\n\n", BUF_SIZE / 1024 / 1024 * 1000000 / t);
     check(addr + rand_off[COUNT-1], BUF_SIZE, 'A');
 
     // A2 range write with msync
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
         msync(addr + rand_off[i], BUF_SIZE, MS_SYNC); 
     }
     t = et(COUNT, "memcpy write (store) + msync 100 MB time\n");
-    printf("Bandwidth: %lu MB/s\n\n", 100UL * 1000000 / t);
+    printf("Bandwidth: %lu MB/s\n\n", BUF_SIZE / 1024 / 1024 * 1000000 / t);
     check(addr + rand_off[COUNT - 1], BUF_SIZE, 'B');
 
     // A3 range write with clflush
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
     }
     _mm_sfence();
     t = et(COUNT, "memcpy write (store) + clfluch 100 MB time\n");
-    printf("Bandwidth: %lu MB/s\n\n", 100UL * 1000000 / t);
+    printf("Bandwidth: %lu MB/s\n\n", BUF_SIZE / 1024 / 1024 * 1000000 / t);
     check(addr + rand_off[COUNT - 1], BUF_SIZE, 'C');
 
     // range memcpy from file
@@ -141,8 +141,9 @@ int main(int argc, char *argv[])
         memcpy(buf2, addr + rand_off[i], BUF_SIZE);
     }
     t = et(COUNT, "memcpy read (load) 100 MB time\n");
-    printf("Bandwidth: %lu MB/s\n\n", 100UL * 1000000 / t);
+    printf("Bandwidth: %lu MB/s\n\n", BUF_SIZE / 1024 / 1024 * 1000000 / t);
     check(buf2, BUF_SIZE, 'C');
+
 
     munmap(addr, MAP_SIZE);
     return 0;
