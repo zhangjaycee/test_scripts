@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -34,7 +35,7 @@ unsigned long long et(int count, char *str)
 {
      gettimeofday(&te, NULL);
      unsigned long long t = td(&ts, &te) / count;
-     printf("%s: %llu us\n", str, t);
+     printf("%s\t%llu us\t", str, t);
      return t;
 }
 
@@ -49,11 +50,25 @@ void check(void *buf, unsigned long len, char *c)
     }
 }
 
+void gen_rand(unsigned long *rand_off)
+{
+    int i;
+    for (i = 0; i < COUNT; i++) {
+        rand_off[i] = (unsigned long)rand() % (MAP_SIZE - 100UL*1024*1024);
+        assert(rand_off[i] < MAP_SIZE);
+        //printf("%lu MB \n", rand_off[i] / 1024 / 1024);
+    }
+}
 
 int main(int argc, char *argv[])
 {
+
     unsigned long i, j;
     unsigned long long t; 
+    time_t tt;
+    srand((unsigned) time(&tt));
+    unsigned long rand_off[COUNT];
+
     int fd = open("mmap.test", O_RDWR | O_CREAT, 0755); 
     assert(fd > 0);
     assert(!fallocate(fd, 0, 0, MAP_SIZE));
@@ -61,10 +76,10 @@ int main(int argc, char *argv[])
     void *addr;
     st();
     addr = mmap(NULL, MAP_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-    t = et(1, "mmap time");
+    t = et(1, "mmap time\n");
     assert(MAP_FAILED != addr);
 
-    // range memcpy to file
+    // ====================== A. RANGE memcpy ======================
 
     // allocate 100 MB buffer:
     void *buf = malloc(BUF_SIZE);
@@ -73,40 +88,51 @@ int main(int argc, char *argv[])
     memcpy(addr, buf, BUF_SIZE);
     msync(addr, BUF_SIZE, MS_SYNC); 
 
+    // A1 range write without sync 
     memset(buf, 'A', BUF_SIZE);
-    st();
-    for (i = 0; i < COUNT; i++)
-        memcpy(addr, buf, BUF_SIZE);
-    t = et(COUNT, "memcpy write (store) 100 MB time");
-    check(buf, BUF_SIZE, 'A');
-
-    memset(buf, 'B', BUF_SIZE);
+    gen_rand(rand_off);
     st();
     for (i = 0; i < COUNT; i++) {
-        memcpy(addr, buf, BUF_SIZE);
-        msync(addr, BUF_SIZE, MS_SYNC); 
+        memcpy(addr + rand_off[i], buf, BUF_SIZE);
     }
-    t = et(COUNT, "memcpy write (store) + msync 100 MB time");
-    check(buf, BUF_SIZE, 'B');
+    t = et(COUNT, "memcpy write (store) 100 MB time\n");
+    printf("Bandwidth: %lu MB/s\n\n", 100UL * 1000000 / t);
+    check(addr + rand_off[COUNT-1], BUF_SIZE, 'A');
 
-    memset(buf, 'C', BUF_SIZE);
+    // A2 range write with msync
+    memset(buf, 'B', BUF_SIZE);
+    gen_rand(rand_off);
     st();
     for (i = 0; i < COUNT; i++) {
-        memcpy(addr, buf, BUF_SIZE);
+        memcpy(addr + rand_off[i], buf, BUF_SIZE);
+        msync(addr + rand_off[i], BUF_SIZE, MS_SYNC); 
+    }
+    t = et(COUNT, "memcpy write (store) + msync 100 MB time\n");
+    printf("Bandwidth: %lu MB/s\n\n", 100UL * 1000000 / t);
+    check(addr + rand_off[COUNT - 1], BUF_SIZE, 'B');
+
+    // A3 range write with clflush
+    memset(buf, 'C', BUF_SIZE);
+    gen_rand(rand_off);
+    st();
+    for (i = 0; i < COUNT; i++) {
+        memcpy(addr + rand_off[i], buf, BUF_SIZE);
         for (j = 0; j < BUF_SIZE; j += 64);
-            _mm_clflush(addr + j);
+            _mm_clflush(addr + rand_off[i] + j);
     }
     _mm_sfence();
-    t = et(COUNT, "memcpy write (store) + clfluch 100 MB time");
-    check(buf, BUF_SIZE, 'C');
+    t = et(COUNT, "memcpy write (store) + clfluch 100 MB time\n");
+    printf("Bandwidth: %lu MB/s\n\n", 100UL * 1000000 / t);
+    check(addr + rand_off[COUNT - 1], BUF_SIZE, 'C');
 
     // range memcpy from file
     void *buf2 = malloc(BUF_SIZE);
     st();
     for (i = 0; i < COUNT; i++) {
-        memcpy(buf2, addr, BUF_SIZE);
+        memcpy(buf2, addr + rand_off[i], BUF_SIZE);
     }
-    t = et(COUNT, "memcpy read (load) 100 MB time");
+    t = et(COUNT, "memcpy read (load) 100 MB time\n");
+    printf("Bandwidth: %lu MB/s\n\n", 100UL * 1000000 / t);
     check(buf2, BUF_SIZE, 'C');
 
     munmap(addr, MAP_SIZE);
