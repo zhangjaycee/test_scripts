@@ -10,10 +10,10 @@
 #include <immintrin.h>
 
 // map 3 GB
-#define MAP_SIZE (3L*1024*1024*1024)
+#define MAP_SIZE (15UL*1024*1024*1024)
 
 // buffer size 100MB
-#define BUF_SIZE (100L*1024*1024)
+#define BUF_SIZE (128UL*1024*1024)
 
 
 #define COUNT 10
@@ -77,16 +77,25 @@ int main(int argc, char *argv[])
     st();
     addr = mmap(NULL, MAP_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
     t = et(1, "mmap time\n");
+    printf("\n\n");
     assert(MAP_FAILED != addr);
 
     // ====================== A. RANGE memcpy ======================
+    printf("====================== A. RANGE memcpy ======================\n");
 
+    printf("overwriting...\n");
     // allocate 100 MB buffer:
     void *buf = malloc(BUF_SIZE);
     // overwrite first!
     memset(buf, 'X', BUF_SIZE);
-    memcpy(addr, buf, BUF_SIZE);
-    msync(addr, BUF_SIZE, MS_SYNC); 
+    for (i = 0; i < MAP_SIZE; i += BUF_SIZE) {
+        printf("i: %lu\n", i);
+        memcpy(addr + i, buf, BUF_SIZE);
+    }
+    msync(addr, MAP_SIZE, MS_SYNC); 
+    printf("overwrite done,,,checking...\n");
+    check(addr, MAP_SIZE, 'X');
+    printf("checking OK , all %c\n", ((char *)addr)[0]);
 
     // A1 range write without sync 
     memset(buf, 'A', BUF_SIZE);
