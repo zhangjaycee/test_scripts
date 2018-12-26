@@ -1,0 +1,27 @@
+[global]
+thread
+group_reporting
+#norandommap
+overwrite=1
+thinktime=0
+sync=0
+direct=0
+
+ioengine=mmap
+filename=/PMEM/testdata
+size=20GB
+#offset_increment=50G  # each of 'numjobs' will get its own space within the device
+
+time_based
+runtime=120
+ramp_time=60
+
+[SeqR]
+bs=1M
+numjobs=16  # depending on CPU core count more can be better, but also can be a bottleneck
+iodepth=1
+
+rw=read
+#rw=randrw
+#rwmixread=100
+#percentage_random=0
