@@ -13,12 +13,12 @@ size=20GB
 #offset_increment=50G  # each of 'numjobs' will get its own space within the device
 
 #time_based
-runtime=30
-ramp_time=0
+runtime=120
+ramp_time=60
 
 [SeqR]
 bs=4k
-numjobs=1  # depending on CPU core count more can be better, but also can be a bottleneck
+numjobs=16  # depending on CPU core count more can be better, but also can be a bottleneck
 iodepth=1
 
 rw=randwrite
