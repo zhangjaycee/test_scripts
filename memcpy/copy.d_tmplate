@@ -1,13 +1,13 @@
 #! /usr/bin/bpftrace
 
 // profiling the single threaded memcpy
-uprobe:/home/zjc/test/cbdma/a.out:memcpy_single 
+uprobe:BINPATH:memcpy_single 
 {
     //clear(@st);
     @st = nsecs; 
     @cnt = count();
 } 
-uretprobe:/home/zjc/test/cbdma/a.out:memcpy_single 
+uretprobe:BINPATH:memcpy_single 
 /@st/
 { 
     printf("time: %ld us\n", (nsecs - @st) / 1000); 
@@ -17,13 +17,13 @@ uretprobe:/home/zjc/test/cbdma/a.out:memcpy_single
 }
 
 // profiling the multi-threaded memcpy
-uprobe:/home/zjc/test/cbdma/a.out:memcpy_mt
+uprobe:BINPATH:memcpy_mt
 {
     //clear(@st_mt);
     @st_mt = nsecs; 
     @cnt_mt = count();
 } 
-uretprobe:/home/zjc/test/cbdma/a.out:memcpy_mt
+uretprobe:BINPATH:memcpy_mt
 /@st_mt/
 { 
     printf("time: %ld us\n", (nsecs - @st_mt) / 1000); 
