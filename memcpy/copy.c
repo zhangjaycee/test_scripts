@@ -1,13 +1,31 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
+#include <fcntl.h>
+#include <assert.h>
+#include <sys/mman.h>
 #include <sys/time.h>
+
+
+#include "spdk/stdinc.h"
+#include "spdk/ioat.h"
+#include "spdk/env.h"
+#include "spdk/queue.h"
+#include "spdk/string.h"
+#include "ioat_channel.h"
+extern TAILQ_HEAD(, ioat_device) g_devices;
+extern int g_ioat_chan_num;
 
 #define MALLOC_MEM 0
 #define DAXFS 1
-#define N 10000
-
+#define N 1000
+#define DAX_PATH "/PMEM"
+//#define BUFFER_SIZE (1024 * 1024 * 1024)
+#define BUFFER_SIZE (2 * 1024 * 1024)
+//#define BUFFER_SIZE (64 * 1024)
 
 struct timeval t0, t1;
 unsigned long long td( struct timeval *t1, struct timeval *t2 )
@@ -16,6 +34,13 @@ unsigned long long td( struct timeval *t1, struct timeval *t2 )
     return dt - t1->tv_sec * 1000000 - t1->tv_usec;
 }
 
+void print_result(size_t buffer_size) 
+{
+    unsigned long long time = td(&t0, &t1);
+    printf("time: %llu us bandwidth: %llu MB/s (%llu KB/s)\n", td(&t0, &t1), 
+                                buffer_size / 1024 / 1024 * N * 1000 * 1000 / time,
+                                buffer_size / 1024 * N * 1000 * 1000 / time);
+}
 
 void *memcpy_single(void *dst, const void *src, size_t n)
 {
@@ -33,7 +58,6 @@ void *memcpy_st(void *args)
     struct memcpy_th_arg *my_args = (struct memcpy_th_arg *)args;
     return memcpy(my_args->dst, my_args->src, my_args->n);
 }
-
 
 void *memcpy_mt(void *dst, const void *src, size_t buffer_size, int thread_number)
 {
@@ -55,7 +79,67 @@ void *memcpy_mt(void *dst, const void *src, size_t buffer_size, int thread_numbe
 }
 
 
+void copy_completion_cb(void *arg)
+{
+    // here, arg is the `copy_done`
+    *(bool *)arg = true;
+}
+int ioat_copy_single_channel(void *dst, void *src, size_t buffer_size, int thread_number)
+{
+    struct ioat_device *g_next_device = TAILQ_FIRST(&g_devices);
+    bool copy_done = false;
+    struct spdk_ioat_chan *ch = get_next_chan();
+    if (ch != NULL) {
+        spdk_ioat_submit_copy(
+            ch,
+            &copy_done,
+            copy_completion_cb,
+            dst,
+            src,
+            buffer_size);
+        while (!copy_done)
+            spdk_ioat_process_events(ch);
+    } else {
+        printf("no ioat channel is probed\n"); 
+        ioat_exit();
+        return -1;
+    }
+    return 0;
+}
 
+
+int ioat_copy_multi_channel(void *dst, void *src, size_t buffer_size, int thread_number)
+{
+    if (g_ioat_chan_num < thread_number) {
+        printf("number of ioat channel is not enough\n");
+        return -1;
+    }
+    bool copy_done[thread_number];
+    for (int i = 0; i < thread_number; i++)
+        copy_done[i] = false;
+    struct spdk_ioat_chan *ch;
+    size_t chunk_size = buffer_size / thread_number;
+    struct ioat_device *g_next_device = TAILQ_FIRST(&g_devices);
+    int i = 0;
+    while (ch = get_next_chan()) {
+        spdk_ioat_submit_copy(
+            ch,
+            &copy_done[i],
+            copy_completion_cb,
+            dst + i * chunk_size,
+            src + i * chunk_size,
+            chunk_size);
+        i++;
+    }
+    g_next_device = TAILQ_FIRST(&g_devices);
+    i = 0;
+    while (ch = get_next_chan()) {
+        while (!copy_done[i])
+            spdk_ioat_process_events(ch);
+        i++;
+    }
+    return 0;
+}
 
 int my_copy_task(int ram_device, size_t buffer_size, int thread_number)
 {
@@ -64,21 +148,31 @@ int my_copy_task(int ram_device, size_t buffer_size, int thread_number)
         return -1; 
     }
 
-    printf("=======================================================================\n");
-    printf("Starting new task:\n\tBuffer Size: %d MB  thread_number: %d chunk_size: %d KB\n",
-                    buffer_size / 1024 / 1024, thread_number, buffer_size / thread_number);
-    printf("-----------------------------------------------------------------------\n");
-
     void *buf_src;
     void *buf_dst; 
     if (ram_device == DAXFS) {
-        // TODO
-        printf("DAX mode not supported yet!\n");
-        return -1; 
+        char dax_filename[100];
+        sprintf(dax_filename, "%s/testfile_for_test_copy\0", DAX_PATH);
+        int fd = open(dax_filename, O_CREAT|O_RDWR, 0755);
+        fallocate(fd, 0, 0, buffer_size * 2);
+        if (fd == -1) {
+            printf("dax file open failed!\n");
+            return -1;
+        }
+        buf_dst = mmap(NULL, buffer_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        assert(buf_dst != MAP_FAILED);
+        buf_src = mmap(NULL, buffer_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, buffer_size);
+        assert(buf_src != MAP_FAILED);
+        printf("================================ DAX ==============================\n");
     } else {    
-        buf_src = malloc(buffer_size * 20);
-        buf_dst = malloc(buffer_size * 20);
+        buf_src = malloc(buffer_size);
+        buf_dst = malloc(buffer_size);
+        printf("================================ MEM ==============================\n");
     }
+
+    printf("Starting new task:\n\tBuffer Size: %d MB  thread_number: %d chunk_size: %d KB\n",
+                    buffer_size / 1024 / 1024, thread_number, buffer_size / thread_number);
+    printf("-----------------------------------------------------------------------\n");
     
     printf("starting single thread memcpy test.. (%d times)\n", N);
     gettimeofday(&t0, NULL);
@@ -86,7 +180,8 @@ int my_copy_task(int ram_device, size_t buffer_size, int thread_number)
         memcpy_single(buf_dst, buf_src, buffer_size);
     }
     gettimeofday(&t1, NULL);
-    printf("time: %lu us\n", td(&t0, &t1));
+    print_result(buffer_size);
+
     printf("-----------------------------------------------------------------------\n");
     printf("starting multi-thread memcpy test.. (%d times)\n", N);
     gettimeofday(&t0, NULL);
@@ -94,20 +189,47 @@ int my_copy_task(int ram_device, size_t buffer_size, int thread_number)
         memcpy_mt(buf_dst, buf_src, buffer_size, thread_number);
     }
     gettimeofday(&t1, NULL);
-    printf("time: %lu us\n", td(&t0, &t1));
-    //ioat_copy_st();
-    //ioat_copy_mt();
+    print_result(buffer_size);
+    
+    printf("-----------------------------------------------------------------------\n");
+
+
+    ioat_init();
+    printf("starting single thread ioat copy test.. (%d times)\n", N);
+    gettimeofday(&t0, NULL);
+    for (int i = 0; i < N; i++){
+        ioat_copy_single_channel(buf_dst, buf_src, buffer_size, thread_number);
+    }
+    gettimeofday(&t1, NULL);
+    print_result(buffer_size);
+
+    printf("-----------------------------------------------------------------------\n");
+    printf("starting multi-thread ioat copy test.. (%d times)\n", N);
+    gettimeofday(&t0, NULL);
+    for (int i = 0; i < N; i++){
+        ioat_copy_multi_channel(buf_dst, buf_src, buffer_size, thread_number);
+    }
+    gettimeofday(&t1, NULL);
+    print_result(buffer_size);
+    ioat_exit();
     printf("=======================================================================\n");
     return 0;
 }
 
-
-int main()
+int main(int argc, void **argvs)
 {
-    gettimeofday(&t0, NULL);
+    if (argc != 2) {
+        printf("Usage: %s [mem|dax]\n", argvs[0]);
+        return -1;
+    }
+    struct timeval t_start, t_end;
+    gettimeofday(&t_start, NULL);
     //my_copy_task(MALLOC_MEM, 1024 * 1024 * 1024, 2);
-    my_copy_task(MALLOC_MEM, 1024 * 1024 * 2, 2);
-    gettimeofday(&t1, NULL);
-    printf("program running time: %lu us\n", td(&t0, &t1));
+    if (!strcmp(argvs[1], "mem"))
+        my_copy_task(MALLOC_MEM, BUFFER_SIZE, 8);
+    else if (!strcmp(argvs[1], "dax"))
+        my_copy_task(DAXFS, BUFFER_SIZE, 8);
+    gettimeofday(&t_end, NULL);
+    printf("program running time: %lu ms\n", td(&t_start, &t_end) / 1000);
     return 0;
 }
