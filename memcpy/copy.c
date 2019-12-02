@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
+#include <sys/time.h>
 
 #define MALLOC_MEM 0
 #define DAXFS 1
@@ -63,6 +64,11 @@ int my_copy_task(int ram_device, size_t buffer_size, int thread_number)
         return -1; 
     }
 
+    printf("=======================================================================\n");
+    printf("Starting new task:\n\tBuffer Size: %d MB  thread_number: %d chunk_size: %d KB\n",
+                    buffer_size / 1024 / 1024, thread_number, buffer_size / thread_number);
+    printf("-----------------------------------------------------------------------\n");
+
     void *buf_src;
     void *buf_dst; 
     if (ram_device == DAXFS) {
@@ -74,17 +80,24 @@ int my_copy_task(int ram_device, size_t buffer_size, int thread_number)
         buf_dst = malloc(buffer_size * 20);
     }
     
+    printf("starting single thread memcpy test.. (%d times)\n", N);
+    gettimeofday(&t0, NULL);
     for (int i = 0; i < N; i++) {
         memcpy_single(buf_dst, buf_src, buffer_size);
-        //usleep(100);
     }
+    gettimeofday(&t1, NULL);
+    printf("time: %lu us\n", td(&t0, &t1));
+    printf("-----------------------------------------------------------------------\n");
+    printf("starting multi-thread memcpy test.. (%d times)\n", N);
+    gettimeofday(&t0, NULL);
     for (int i = 0; i < N; i++){
         memcpy_mt(buf_dst, buf_src, buffer_size, thread_number);
-        //usleep(1);
     }
-    printf("done\n");
+    gettimeofday(&t1, NULL);
+    printf("time: %lu us\n", td(&t0, &t1));
     //ioat_copy_st();
     //ioat_copy_mt();
+    printf("=======================================================================\n");
     return 0;
 }
 
