@@ -57,7 +57,7 @@ struct ioat_device {
 };
 
 TAILQ_HEAD(, ioat_device) g_devices;
-static struct ioat_device *g_next_device;
+struct ioat_device *g_next_device;
 
 static struct user_config g_user_config;
 
@@ -399,14 +399,13 @@ work_fn(void *arg)
 	return 0;
 }
 
-static int
-init(void)
+int init(void)
 {
 	struct spdk_env_opts opts;
 
 	spdk_env_opts_init(&opts);
-	opts.name = "ioat_perf";
-	opts.core_mask = g_user_config.core_mask;
+	opts.name = "copy";
+	opts.core_mask = "0xff";
 	if (spdk_env_init(&opts) < 0) {
 		return -1;
 	}
