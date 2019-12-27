@@ -9,13 +9,14 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 
-
 #include "spdk/stdinc.h"
 #include "spdk/ioat.h"
 #include "spdk/env.h"
 #include "spdk/queue.h"
 #include "spdk/string.h"
 #include "ioat_channel.h"
+#include "align.h"
+
 extern TAILQ_HEAD(, ioat_device) g_devices;
 extern int g_ioat_chan_num;
 extern struct ioat_device *g_next_device;
@@ -29,6 +30,7 @@ extern struct user_config g_user_config;
 #define DAXFS 1
 #define N 100
 #define DAX_PATH "/mnt/pmem1"
+//#define DAX_PATH "/PMEM"
 //#define BUFFER_SIZE (1024 * 1024 * 1024)
 //#define BUFFER_SIZE (128 * 1024 * 1024)
 #define BUFFER_SIZE (2 * 1024 * 1024)
@@ -52,7 +54,14 @@ void print_result(size_t buffer_size)
 void *my_malloc(size_t size)
 {
     return spdk_malloc(size, 4096, NULL, SPDK_ENV_LCORE_ID_ANY, SPDK_MALLOC_DMA);
-    //return malloc(size);
+    /* 
+    unsigned long align = 4096;
+    void *addr = malloc(size+align);
+    if ((unsigned long)addr % align == 0)
+        return addr;
+    else
+        return ((unsigned long)addr / align + 1ul) * align;
+    */
 }
 
 
@@ -190,11 +199,13 @@ int my_copy_task(int ram_device, size_t buffer_size, int thread_number)
         } else {
             printf("dax file opened!\n");
         }
-        fallocate(fd, 0, 0, buffer_size * 2);
-        buf_dst = mmap(NULL, buffer_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        fallocate(fd, 0, 0, buffer_size * 4);
+        buf_dst = mmap(NULL, buffer_size+4096, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         assert(buf_dst != MAP_FAILED);
-        buf_src = mmap(NULL, buffer_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, buffer_size);
+        buf_dst = align_to(buf_dst, 4096);
+        buf_src = mmap(NULL, buffer_size+4096, PROT_READ|PROT_WRITE, MAP_SHARED, fd, buffer_size * 2);
         assert(buf_src != MAP_FAILED);
+        buf_src = align_to(buf_src, 4096);
         printf("================================ DAX ==============================\n");
     } else {    
         //buf_src = malloc(buffer_size);
