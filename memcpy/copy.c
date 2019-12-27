@@ -22,10 +22,11 @@ extern struct ioat_device *g_next_device;
 
 #define MALLOC_MEM 0
 #define DAXFS 1
-#define N 1
-#define DAX_PATH "/PMEM"
+#define N 10
+#define DAX_PATH "/mnt/pmem1"
 //#define BUFFER_SIZE (1024 * 1024 * 1024)
-#define BUFFER_SIZE (2 * 1024 * 1024)
+#define BUFFER_SIZE (128 * 1024 * 1024)
+//#define BUFFER_SIZE (2 * 1024 * 1024)
 //#define BUFFER_SIZE (64 * 1024)
 
 struct timeval t0, t1;
@@ -94,11 +95,13 @@ void copy_completion_cb(void *arg)
 }
 int ioat_copy_single_channel(void *dst, void *src, size_t buffer_size, int thread_number)
 {
+    /*
     if (TAILQ_EMPTY(&g_devices)) {
         printf("empty!\n");
     } else {
         printf("not empty!\n");
     }
+    */
     g_next_device = TAILQ_FIRST(&g_devices);
     bool copy_done = false;
     struct spdk_ioat_chan *ch = get_next_chan();
@@ -133,8 +136,8 @@ int ioat_copy_multi_channel(void *dst, void *src, size_t buffer_size, int thread
     struct spdk_ioat_chan *ch;
     size_t chunk_size = buffer_size / thread_number;
     g_next_device = TAILQ_FIRST(&g_devices);
-    int i = 0;
-    while (ch = get_next_chan()) {
+    for (int i = 0; i < thread_number; i++) {
+        ch = get_next_chan();
         spdk_ioat_submit_copy(
             ch,
             &copy_done[i],
@@ -142,14 +145,12 @@ int ioat_copy_multi_channel(void *dst, void *src, size_t buffer_size, int thread
             dst + i * chunk_size,
             src + i * chunk_size,
             chunk_size);
-        i++;
     }
     g_next_device = TAILQ_FIRST(&g_devices);
-    i = 0;
-    while (ch = get_next_chan()) {
+    for (int i = 0; i < thread_number; i++) {
+        ch = get_next_chan();
         while (!copy_done[i])
             spdk_ioat_process_events(ch);
-        i++;
     }
     return 0;
 }
@@ -165,16 +166,18 @@ int my_copy_task(int ram_device, size_t buffer_size, int thread_number)
     void *buf_dst; 
     if (ram_device == DAXFS) {
         printf("DAX not supportted for ioat copying now\n");
-        reutnr -1;
+        return -1;
         // TODO
         char dax_filename[100];
         sprintf(dax_filename, "%s/testfile_for_test_copy\0", DAX_PATH);
         int fd = open(dax_filename, O_CREAT|O_RDWR, 0755);
-        fallocate(fd, 0, 0, buffer_size * 2);
         if (fd == -1) {
             printf("dax file open failed!\n");
             return -1;
+        } else {
+            printf("dax file opened!\n");
         }
+        fallocate(fd, 0, 0, buffer_size * 2);
         buf_dst = mmap(NULL, buffer_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         assert(buf_dst != MAP_FAILED);
         buf_src = mmap(NULL, buffer_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, buffer_size);
