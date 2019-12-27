@@ -42,6 +42,7 @@
 
 #include "ioat_channel.h"
 
+/*
 struct user_config {
 	int xfer_size_bytes;
 	int queue_depth;
@@ -50,6 +51,7 @@ struct user_config {
 	char *core_mask;
 	int ioat_chan_num;
 };
+*/
 
 struct ioat_device {
 	struct spdk_ioat_chan *ioat;
@@ -59,7 +61,7 @@ struct ioat_device {
 TAILQ_HEAD(, ioat_device) g_devices;
 struct ioat_device *g_next_device;
 
-static struct user_config g_user_config;
+struct user_config g_user_config;
 
 struct ioat_chan_entry {
 	struct spdk_ioat_chan *chan;
@@ -105,8 +107,7 @@ construct_user_config(struct user_config *self)
 	self->core_mask = "0x1";
 }
 
-static void
-dump_user_config(struct user_config *self)
+void dump_user_config(struct user_config *self)
 {
 	printf("User configuration:\n");
 	printf("Number of channels:    %u\n", self->ioat_chan_num);
@@ -405,7 +406,7 @@ int init(void)
 
 	spdk_env_opts_init(&opts);
 	opts.name = "copy";
-	opts.core_mask = "0xff";
+	opts.core_mask = "0xffffffff";
 	if (spdk_env_init(&opts) < 0) {
 		return -1;
 	}

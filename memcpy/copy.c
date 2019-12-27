@@ -19,14 +19,19 @@
 extern TAILQ_HEAD(, ioat_device) g_devices;
 extern int g_ioat_chan_num;
 extern struct ioat_device *g_next_device;
+extern struct user_config g_user_config;
+
+
+#define SPDK_THREAD
 
 #define MALLOC_MEM 0
+#define THREAD_NUM 16
 #define DAXFS 1
-#define N 10
+#define N 100
 #define DAX_PATH "/mnt/pmem1"
 //#define BUFFER_SIZE (1024 * 1024 * 1024)
-#define BUFFER_SIZE (128 * 1024 * 1024)
-//#define BUFFER_SIZE (2 * 1024 * 1024)
+//#define BUFFER_SIZE (128 * 1024 * 1024)
+#define BUFFER_SIZE (2 * 1024 * 1024)
 //#define BUFFER_SIZE (64 * 1024)
 
 struct timeval t0, t1;
@@ -77,22 +82,30 @@ void *memcpy_mt(void *dst, const void *src, size_t buffer_size, int thread_numbe
         my_args->dst = dst + chunk_size * i;
         my_args->src = src + chunk_size * i;
         my_args->n = chunk_size;
+#ifdef SPDK_THREAD
+        spdk_env_thread_launch_pinned(i+1, memcpy_st, my_args);
+#else
         if (pthread_create(&memcpy_th[i], NULL, memcpy_st, (void *)my_args)) {
             printf("Creating thread failed!\n");
         }
+#endif
     }
+#ifdef SPDK_THREAD
+    spdk_env_thread_wait_all();
+#else
     for (int i = 0; i < thread_number; i++) {
         pthread_join(memcpy_th[i], NULL);
     }
+#endif
     return NULL;
 }
-
 
 void copy_completion_cb(void *arg)
 {
     // here, arg is the `copy_done`
     *(bool *)arg = true;
 }
+
 int ioat_copy_single_channel(void *dst, void *src, size_t buffer_size, int thread_number)
 {
     /*
@@ -192,7 +205,7 @@ int my_copy_task(int ram_device, size_t buffer_size, int thread_number)
     }
 
     printf("Starting new task:\n\tBuffer Size: %d MB  thread_number: %d chunk_size: %d KB\n",
-                    buffer_size / 1024 / 1024, thread_number, buffer_size / thread_number);
+                    buffer_size / 1024 / 1024, thread_number, buffer_size / thread_number / 1024);
 /**/
     printf("-----------------------------------------------------------------------\n");
     
@@ -249,9 +262,9 @@ int main(int argc, void **argvs)
     gettimeofday(&t_start, NULL);
     //my_copy_task(MALLOC_MEM, 1024 * 1024 * 1024, 2);
     if (!strcmp(argvs[1], "mem"))
-        my_copy_task(MALLOC_MEM, BUFFER_SIZE, 8);
+        my_copy_task(MALLOC_MEM, BUFFER_SIZE, THREAD_NUM);
     else if (!strcmp(argvs[1], "dax"))
-        my_copy_task(DAXFS, BUFFER_SIZE, 8);
+        my_copy_task(DAXFS, BUFFER_SIZE, THREAD_NUM);
     ioat_exit();
     gettimeofday(&t_end, NULL);
     printf("program running time: %lu ms\n", td(&t_start, &t_end) / 1000);
